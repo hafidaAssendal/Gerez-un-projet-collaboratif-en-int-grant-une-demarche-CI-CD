@@ -1,2 +1,63 @@
 # job1 de test: step pour lancer les test +1 step pour souvgarder le rapport de  test sur le repo
 # job2 sonar: va lancer sonar scanner le projet et publier le rapport sur sonarcub 
+on:
+  push:
+    branches: [ "feature/*", "release/*", "hotfix/*", "develop","main" ]
+    paths: [ 'front/**', '.github/workflows/**' ]
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [ main ]
+
+jobs:
+  tests-sonar:
+    name: Frontend - Tests & Coverage
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('front/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
+      - name: Cache SonarCloud packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: front
+
+      - name: Run frontend tests with coverage
+        run: npm run test -- --no-watch --no-progress --browsers=ChromeHeadless --code-coverage
+        working-directory: front
+
+      - name: Save test report
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-test-report
+          path: front/coverage/bobapp/
+
+      - name: SonarCloud Scan - Front
+        uses: SonarSource/sonarcloud-github-action@v3
+        with:
+          projectBaseDir: ./front
+        env:
+          SONAR_TOKEN: ${{ secrets.SONNAR_TOKEN_FRONTEND }}
