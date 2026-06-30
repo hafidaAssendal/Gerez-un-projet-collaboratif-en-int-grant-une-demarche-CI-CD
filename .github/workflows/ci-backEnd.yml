@@ -31,9 +31,30 @@ jobs:
           java-version: '11'
           distribution: 'temurin'
 
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('back/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Cache SonarCloud packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
       - name: Run backend tests with JaCoCo
         run: mvn clean verify
         working-directory: back
+
+      - name: Save test report
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-report
+          path: back/target/surefire-reports/
 
       - name: SonarCloud Scan - Back
         uses: SonarSource/sonarcloud-github-action@v3
