@@ -1,3 +1,73 @@
-#il va contenir deux job 
-#job1 pour builder les images  front et backk uniquement pour l event pul request vers la branche main 
-#un job pour pour pucher les image sur docker uniquement pour l event push 
+name: CD - Docker Build & Push
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  # ============================================
+  #  Build uniquement (sur Pull Request)
+  # ============================================
+  build:
+    name: Build Docker images
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image (no push)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./back
+          push: false
+          tags: bobapp-back:test
+
+      - name: Build frontend image (no push)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./front
+          push: false
+          tags: bobapp-front:test
+
+  # ============================================
+  # Build + Push sur Docker Hub (sur push)
+  # ============================================
+  build-and-push:
+    name: Build and push Docker images
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./back
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/bobapp-back:latest
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./front
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/bobapp-front:latest
